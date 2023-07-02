@@ -15,7 +15,7 @@ import { useRef, useEffect } from 'react'
 
 export function SendingConfirm(props) {
   const { isOpen, onClose, onConfirm, info } = props
-  const { network, recipient, feeRate, feeInBtc, btcValue } = info
+  const { network, recipient, feeRate, feeInBtc, feeTotalInBtc, btcValue } = info
   const cancelRef = useRef()
 
   return (
@@ -35,6 +35,7 @@ export function SendingConfirm(props) {
                 <Text>Sending: {btcValue} BTC</Text>
                 <Text>Fee Rate: {feeRate}</Text>
                 <Text>Transaction Fee: {feeInBtc} BTC</Text>
+                <Text>Total Fee: {feeTotalInBtc} BTC</Text>
               </Box>
             </AlertDialogBody>
 

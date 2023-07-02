@@ -13,78 +13,66 @@ const Setting = () => {
       <BackIcon />
 
       <Spacer mt="50px" />
+
+      <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          window.open(`chrome-extension://${EXTENSION_ID}/index.html`)
+          router.push('/src20/send')
         }}
       >
-        Open in new tab
+        Send
       </Button>
 
       <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          router.push('/setting/accounts')
+          router.push('/src20/mint')
         }}
       >
-        Accounts
+        Mint
       </Button>
 
       <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          router.push('/setting/network')
+          router.push('/src20/deploy')
         }}
       >
-        Network
+        Deploy
       </Button>
 
       <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          router.push('/wallet/revealSeed')
+          router.push('/src20/listing')
         }}
       >
-        Reveal Pass Phrase
+        Buy
       </Button>
 
       <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          router.push('/wallet/newWallet')
+          router.push('/src20/list')
         }}
       >
-        New Wallet
+        Sell
       </Button>
 
       <Spacer mt="20px" />
       <Button
         w="100%"
         onClick={() => {
-          router.push('/lock')
+          router.push('/src20/myListing')
         }}
       >
-        Lock
+        My Listings
       </Button>
-
-      <Spacer mt="20px" />
-      <Button
-        w="100%"
-        onClick={() => {
-          window.open(`https://t.me/thestampwalletsupport`)
-        }}
-      >
-        Support
-      </Button>
-
-      <Center color="gray.500" mt="20px" fontSize={'13px'}>
-        Version: 0.2.6.1
-      </Center>
     </Box>
   )
 }

@@ -4,11 +4,16 @@ import BackIcon from '@/component/BackIcon'
 export const SettingLayout = (props) => {
   return (
     <Box>
-      <Box>
-        <BackIcon />
-      </Box>
-      <Center>{props.center}</Center>
-      {props.right}
+      <SimpleGrid columns={3} spacing={6}>
+        <Box>
+          <BackIcon />
+        </Box>
+        <Center fontSize={'14px'}>{props.center}</Center>
+        <Flex>
+          <Spacer />
+          {props.right}
+        </Flex>
+      </SimpleGrid>
 
       <Spacer mt="30px" />
       {props.children}

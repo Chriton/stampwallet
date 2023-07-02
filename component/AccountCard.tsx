@@ -36,7 +36,7 @@ export const AccountCard = ({ index, account, network, onClick, onDelete }) => {
   const router = useRouter()
 
   return (
-    <Box borderRadius={'8px'} bgColor="gray.600" my="8px">
+    <Box borderRadius={'8px'} bgColor="gray.700" my="8px">
       <Box cursor={'pointer'} h="66px" py="10px" px="10px">
         <Flex>
           <Center mx="6px" onClick={onClick}>
@@ -60,7 +60,7 @@ export const AccountCard = ({ index, account, network, onClick, onDelete }) => {
                   <BsThreeDots />
                 </Box>
               </PopoverTrigger>
-              <PopoverContent width="100px">
+              <PopoverContent width="150px">
                 <PopoverArrow />
                 <PopoverBody>
                   <VStack spacing={'10px'}>
@@ -95,7 +95,21 @@ export const AccountCard = ({ index, account, network, onClick, onDelete }) => {
                         })
                       }}
                     >
-                      <FiCopy></FiCopy> <Text mx="10px">Copy</Text>
+                      <FiCopy></FiCopy> <Text mx="10px">Address</Text>
+                    </Center>
+                    <Center
+                      onClick={() => {
+                        const wif = account.ecpair.toWIF()
+                        navigator.clipboard.writeText(wif)
+                        notify({
+                          title: `Private Key Copied: ${wif.slice(0, 5)}...${wif.slice(
+                            wif.length - 5,
+                            wif.length
+                          )}`,
+                        })
+                      }}
+                    >
+                      <FiCopy></FiCopy> <Text mx="10px">Private Key</Text>
                     </Center>
                     <Center
                       onClick={() => {

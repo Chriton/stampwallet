@@ -15,7 +15,7 @@ import { useRef, useEffect } from 'react'
 
 export function SendingSrc20Confirm(props) {
   const { isOpen, onClose, onConfirm, info } = props
-  const { network, recipient, feeRate, feeInBtc, token, amount } = info
+  const { network, recipient, feeRate, feeInBtc, feeTotalInBtc, token, amount } = info
   const cancelRef = useRef()
 
   return (
@@ -24,7 +24,7 @@ export function SendingSrc20Confirm(props) {
         <AlertDialogOverlay p="50px">
           <AlertDialogContent>
             <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Send Bitcoin
+              SRC20 Transaction
             </AlertDialogHeader>
 
             <AlertDialogBody>
@@ -32,11 +32,9 @@ export function SendingSrc20Confirm(props) {
               <Box fontSize="13px" mt="10px" color="gray.300">
                 <Text>Network: {network}</Text>
                 <Text>Recipient: {recipient}</Text>
-                <Text>
-                  Sending: {amount} {token}
-                </Text>
                 <Text>Fee Rate: {feeRate}</Text>
                 <Text>Transaction Fee: {feeInBtc} BTC</Text>
+                <Text>Total Fee: {feeTotalInBtc} BTC</Text>
               </Box>
             </AlertDialogBody>
 

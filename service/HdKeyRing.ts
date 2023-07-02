@@ -24,7 +24,7 @@ export default class HdKeyRing {
   }
 
   getId() {
-    return sha512(`${this.mnemonic}`)
+    return sha512(`${this.type} - ${this.mnemonic} - ${this.passphrase}`)
   }
 
   getAccount(index, network, hdPath = DEFAULT_HD_PATH) {
@@ -32,7 +32,7 @@ export default class HdKeyRing {
     const hdRoot = root.deriveChild(hdPath)
     const child = hdRoot.deriveChild(index)
     const ecpair = ECPair.fromPrivateKey(child.privateKey.toBuffer())
-    const publickey = ecpair.publicKey
+    const publickey = ecpair.publicKey.toString('hex')
     const { address } = bitcoin.payments.p2wpkh({
       pubkey: ecpair.publicKey,
       network: network === 'livenet' ? bitcoin.networks.bitcoin : bitcoin.networks.testnet,

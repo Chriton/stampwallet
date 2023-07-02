@@ -50,21 +50,21 @@ export const queryUtxos = async ({ queryKey }) => {
       ? process.env.NEXT_PUBLIC_BITCOIN_BLOCKSTREAM_TEST_API
       : process.env.NEXT_PUBLIC_BITCOIN_BLOCKSTREAM_MAIN_API
 
-  const res = await axios.get(`${baseUrl}${address}/utxo`)
+  const res = await axios.get(`${baseUrl}/address/${address}/utxo`)
   return res.data
 }
 
 export const sendTransaction = async (network, txHex) => {
-  const res = await queryBase({ network, params: txHex, method: 'sendrawtransaction' })
+  const res = await queryBase({ network, params: [txHex], method: 'sendrawtransaction' })
   return res
 }
 
 export const getTransaction = async (network, txId) => {
-  const res = await queryBase({ network, params: txId, method: 'getrawtransaction' })
+  const res = await queryBase({ network, params: [txId, 1], method: 'getrawtransaction' })
   return res
 }
 
-export const queryMempoolFee = async ({}) => {
+export const queryMempoolFee = async ({ queryKey }) => {
   const url = 'https://mempool.space/api/v1/fees/recommended'
   try {
     const res = await axios.get(url)
@@ -72,7 +72,22 @@ export const queryMempoolFee = async ({}) => {
       return res.data.fastestFee
     }
   } catch (e) {
-    logger.error(e)
+    console.error(e)
+  }
+  return null
+}
+
+export const queryBtcPrice = async ({}) => {
+  const usdVolume = 1000
+  const url = `https://www.blockchain.com/tobtc?currency=usd&value=${usdVolume}`
+  try {
+    const res = await axios.get(url)
+    if (res.status === 200) {
+      const btcPrice = usdVolume / res.data
+      return btcPrice
+    }
+  } catch (e) {
+    console.error(e)
   }
   return null
 }

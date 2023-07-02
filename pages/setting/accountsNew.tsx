@@ -54,7 +54,7 @@ export default function Accounts() {
           }}
           cursor={'pointer'}
         >
-          <Center bgColor={'gray.700'} w="50px" h="50px" borderRadius={'25px'}>
+          <Center bgColor={'gray.500'} w="50px" h="50px" borderRadius={'25px'}>
             <Icon boxSize={'50px'} as={AddIcon}></Icon>
           </Center>
           <Text ml="10px">Add a new account</Text>

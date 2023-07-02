@@ -90,12 +90,18 @@ const Home = () => {
       {type.value === TYPE_OPTIONS.PRIVATE_KEY && (
         <Box>
           <Text mt="20px">Private Key (WIF):</Text>
-          <Input onChange={(e) => setWif(e.target.value)}></Input>
+          <Input
+            onChange={(e) => {
+              const wifInput = e.target.value
+              const wifFormatted = wifInput.includes(':') ? wifInput.split(':')[1] : wifInput
+              setWif(wifFormatted)
+            }}
+          ></Input>
           <Text mt="20px">Address Type:</Text>
           <Select
             options={[
-              { label: 'Segwit', value: 'segwit' },
-              { label: 'Legacy', value: 'legacy' },
+              { label: 'Segwit (use this for bxxxx address)', value: 'segwit' },
+              { label: 'Legacy (use this for 1xxxx address)', value: 'legacy' },
             ]}
             value={addressType}
             onChange={setAddressType}

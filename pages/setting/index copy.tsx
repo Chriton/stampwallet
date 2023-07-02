@@ -56,34 +56,13 @@ const Setting = () => {
       <Button
         w="100%"
         onClick={() => {
-          router.push('/wallet/newWallet')
-        }}
-      >
-        New Wallet
-      </Button>
-
-      <Spacer mt="20px" />
-      <Button
-        w="100%"
-        onClick={() => {
           router.push('/lock')
         }}
       >
         Lock
       </Button>
-
-      <Spacer mt="20px" />
-      <Button
-        w="100%"
-        onClick={() => {
-          window.open(`https://t.me/thestampwalletsupport`)
-        }}
-      >
-        Support
-      </Button>
-
       <Center color="gray.500" mt="20px" fontSize={'13px'}>
-        Version: 0.2.6.1
+        Version: 0.2.5.2
       </Center>
     </Box>
   )

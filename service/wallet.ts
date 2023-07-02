@@ -1,5 +1,7 @@
 import Mnemonic from 'bitcore-mnemonic'
 import encryptor from 'browser-passworder'
+import crypto from 'crypto'
+import * as ecc from 'tiny-secp256k1'
 import {
   setLocalItem,
   getLocalItem,
@@ -112,6 +114,7 @@ class Wallet {
       index,
       name: name || `Account ${index}`,
     })
+    // don't need to await
     this.persist()
     return true
   }
@@ -120,7 +123,7 @@ class Wallet {
     // check exist
     let exist = false
     this.keyRings.forEach((keyRing) => {
-      if (keyRing.wif === wif) {
+      if (keyRing.wif === wif && keyRing.addressType === addressType) {
         exist = true
       }
     })
@@ -160,6 +163,7 @@ class Wallet {
       name: name || `Account Watched`,
     })
 
+    this.persist()
     return true
   }
 
@@ -179,16 +183,21 @@ class Wallet {
     const deleteCurrent = this.displayConfig[index].isCurrent
     this.displayConfig.splice(index, 1)
     if (deleteCurrent) this.displayConfig[0].isCurrent = true
+    this.persist()
     return true
   }
 
   updateAccountName(index: number, name: string) {
     this.displayConfig[index].name = name
+    this.persist()
   }
 
   setCurrentAccountIndex(accountIndex: number) {
     if (this.displayConfig.length === 0 || this.displayConfig.length <= accountIndex) return
 
+    for (let i = 0; i < this.displayConfig.length; i++) {
+      this.displayConfig[i].isCurrent = accountIndex === i
+    }
     if (this.displayConfig.length > 0) {
       this.persist()
     }
@@ -229,8 +238,11 @@ class Wallet {
       }
     })
 
+    if (exist) return
+
     const hdKeyRing = new HdKeyRing(mnemonic, passphrase)
     this.keyRings.push(hdKeyRing)
+    this.updateKeyRingMapping()
 
     // always add first account whenever we add a new mnemonic
     this.displayConfig.push({
@@ -267,6 +279,19 @@ class Wallet {
           passphrase: keyRing.passphrase,
         }
       }
+      if (keyRing.type === KEY_RING_TYPE.WIF) {
+        return {
+          type: keyRing.type,
+          wif: keyRing.wif,
+          addressType: keyRing.addressType,
+        }
+      }
+      if (keyRing.type === KEY_RING_TYPE.WATCH) {
+        return {
+          type: keyRing.type,
+          address: keyRing.address,
+        }
+      }
     })
 
     const dataToPersist = {
@@ -289,6 +314,14 @@ class Wallet {
     keyRingData.forEach((each) => {
       if (each.type === KEY_RING_TYPE.HD) {
         const keyRing = new HdKeyRing(each.mnemonic, each.passphrase)
+        keyRings.push(keyRing)
+      }
+      if (each.type === KEY_RING_TYPE.WIF) {
+        const keyRing = new WifKeyRing(each.wif, each.addressType)
+        keyRings.push(keyRing)
+      }
+      if (each.type === KEY_RING_TYPE.WATCH) {
+        const keyRing = new WatchKeyRing(each.address)
         keyRings.push(keyRing)
       }
     })
@@ -320,6 +353,21 @@ class Wallet {
   verifyPassword = async (password) => {
     const passwordHash = await this.getPasswordHash()
     return passwordHash && sha512(password) === passwordHash
+  }
+
+  sign = async (ecpair, message) => {
+    var privateKey = ecpair.privateKey
+    var publicKey = ecpair.publicKey
+
+    const messageBuffer = Buffer.from(message)
+    const hash = crypto.createHash('sha256').update(messageBuffer).digest()
+    const signature = Buffer.from(ecc.sign(hash, privateKey))
+
+    const hashString = hash.toString('hex')
+    const publicKeyString = publicKey.toString('hex')
+    const signatureString = signature.toString('hex')
+
+    return { hashString, publicKeyString, signatureString, message }
   }
 }
 

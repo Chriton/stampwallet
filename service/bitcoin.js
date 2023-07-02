@@ -5,6 +5,7 @@ import { memoize } from 'decko'
 import { KEY_RING_TYPE, DEFAULT_HD_PATH } from '@/constant'
 import { sha512 } from 'js-sha512'
 import { sendTransaction, getTransaction } from '../query/bitcoin'
+import { getReqListMeta, getReqMintMeta, getReqDeployMeta } from '../query/src20'
 import { sum } from 'lodash'
 import crypto from 'crypto'
 import { encrypt, decrypt } from '@/utils/aes'
@@ -16,15 +17,15 @@ bitcoin.initEccLib(ecc)
 
 //TODO: fix this
 const getOutputVbytes = (vout) => {
-  return 62
+  return 31
 }
 
 //TODO: fix this
 const getInputVbytes = (utxo) => {
-  return 132
+  return 68
 }
 
-const selectUtxos = (utxos, vouts, feeRate) => {
+const selectUtxos = (utxos, vouts, feeRate, message = null) => {
   const sortedUtxos = utxos.sort((a, b) => b.value - a.value)
   const outValueSum = sum(vouts.map((e) => e.value))
 
@@ -37,6 +38,9 @@ const selectUtxos = (utxos, vouts, feeRate) => {
     vbTotal += getOutputVbytes(vout)
   }
   vbTotal += getOutputVbytes({ address: 'change address', value: 'change value' })
+  if (message) {
+    vbTotal += 2 + message.length
+  }
 
   let utxoValueSum = 0
   let inputs = []
@@ -50,10 +54,12 @@ const selectUtxos = (utxos, vouts, feeRate) => {
     utxoValueSum += utxo.value
     const feeSum = feeRate * vbTotal
 
-    return {
-      fee: feeSum,
-      inputs: inputs,
-      change: parseInt(utxoValueSum - (outValueSum + feeSum)),
+    if (utxoValueSum >= outValueSum + feeSum) {
+      return {
+        fee: feeSum,
+        inputs: inputs,
+        change: parseInt(utxoValueSum - (outValueSum + feeSum)),
+      }
     }
   }
   return { fee: feeRate * vbTotal }
@@ -67,15 +73,22 @@ export const prepareSendBitcoin = async ({
   toAddress,
   value,
   feeRate,
+  message,
 }) => {
   const psbtNetwork = network === 'testnet' ? bitcoin.networks.testnet : bitcoin.networks.bitcoin
   const psbt = new bitcoin.Psbt({ network: psbtNetwork })
 
   const vouts = [{ address: toAddress, value }]
-  const { inputs, fee, change } = selectUtxos(utxos, vouts, feeRate)
+  const { inputs, fee, change } = selectUtxos(utxos, vouts, feeRate, message)
+
+  let feeTotal = 0
+  for (let vout of vouts) {
+    feeTotal += vout.value
+  }
+  feeTotal += fee
 
   if (!inputs) {
-    throw new Error(`Not enough balance: ${fee} `)
+    throw new Error(`Not enough BTC balance for miner: ${fee} `)
   }
 
   for (let input of inputs) {
@@ -108,6 +121,13 @@ export const prepareSendBitcoin = async ({
     value: change,
   })
 
+  console.log(message)
+  if (message) {
+    const embed = bitcoin.payments.embed({ data: [Buffer.from(message, 'utf8')] })
+    console.log(embed.output)
+    psbt.addOutput({ script: embed.output, value: 0 })
+  }
+
   psbt.signAllInputs(ecPair)
 
   const validator = (pubkey, msghash, signature) =>
@@ -116,7 +136,7 @@ export const prepareSendBitcoin = async ({
   psbt.finalizeAllInputs()
 
   const txHex = psbt.extractTransaction().toHex()
-  return { txHex, fee }
+  return { txHex, fee, feeTotal }
 }
 
 export const sendBitcoin = async ({ network, txHex }) => {
@@ -127,7 +147,8 @@ export const sendBitcoin = async ({ network, txHex }) => {
 function address_from_pubkeyhash(pubkeyhash) {
   var publicKey = new bitcore.PublicKey(pubkeyhash)
   var address = bitcore.Address.fromPublicKey(publicKey)
-  return address
+
+  return address.toString()
 }
 
 const selectSrc20Utxos = (utxos, vouts, feeRate) => {
@@ -139,8 +160,11 @@ const selectSrc20Utxos = (utxos, vouts, feeRate) => {
 
   vbTotal += vbOverHead
 
-  vbTotal += 62 * 2
-  vbTotal += (vouts.length - 1) * 220
+  vbTotal += 31 // change
+  for (const vout of vouts) {
+    if (vout.script) vbTotal += 120
+    else vbTotal += 31
+  }
 
   let utxoValueSum = 0
   let inputs = []
@@ -227,18 +251,37 @@ export const prepareSendSrc20 = async ({
   utxos,
   changeAddress,
   toAddress,
-  token,
-  amount,
   feeRate,
-  memo,
+  transferString,
+  action,
 }) => {
+  console.log('transferString', transferString)
+
   const psbtNetwork = network === 'testnet' ? bitcoin.networks.testnet : bitcoin.networks.bitcoin
   const psbt = new bitcoin.Psbt({ network: psbtNetwork })
   const sortedUtxos = utxos.sort((a, b) => b.value - a.value)
-  const vouts = [{ address: toAddress, value: 555 }]
-  const transferString = `stamp:{"p":"src-20","op":"transfer","tick":"${token}","amt":"${amount}"}`
+
+  let vouts = [{ address: toAddress, value: 555 }]
+
+  if (['list'].includes(action)) {
+    let reqListMeta = {}
+    if (action === 'list') reqListMeta = await getReqListMeta()
+
+    if (
+      reqListMeta?.address === undefined ||
+      reqListMeta?.feeInSat === undefined ||
+      reqListMeta?.address.length < 10
+    ) {
+      console.error('reqMeta:', reqListMeta)
+      throw new Error('Bad req list meta data')
+    }
+    vouts = [{ address: reqListMeta.address, value: reqListMeta.feeInSat }]
+
+    console.log(vouts)
+  }
+
   let transferHex = Buffer.from(transferString, 'utf-8').toString('hex')
-  let count = transferHex.length.toString(16)
+  let count = (transferHex.length / 2).toString(16)
   let padding = ''
   for (let i = count.length; i < 4; i++) {
     padding += '0'
@@ -269,8 +312,10 @@ export const prepareSendSrc20 = async ({
       second_byte = crypto.randomBytes(1).toString('hex')
       pubkeyhash = first_byte + pubkey_seg1 + second_byte
 
-      var hash1 = pubkeyhash
-      var address1 = address_from_pubkeyhash(pubkeyhash)
+      if (bitcore.PublicKey.isValid(pubkeyhash)) {
+        var hash1 = pubkeyhash
+        var address1 = address_from_pubkeyhash(pubkeyhash)
+      }
     }
 
     while (address2.length == 0) {
@@ -278,8 +323,10 @@ export const prepareSendSrc20 = async ({
       second_byte = crypto.randomBytes(1).toString('hex')
       pubkeyhash = first_byte + pubkey_seg2 + second_byte
 
-      var hash2 = pubkeyhash
-      var address2 = address_from_pubkeyhash(pubkeyhash)
+      if (bitcore.PublicKey.isValid(pubkeyhash)) {
+        var hash2 = pubkeyhash
+        var address2 = address_from_pubkeyhash(pubkeyhash)
+      }
     }
     var data_hashes = [hash1, hash2]
     return data_hashes
@@ -294,9 +341,37 @@ export const prepareSendSrc20 = async ({
       value: 888,
     })
   }
+
+  if (['mint', 'deploy'].includes(action)) {
+    let reqMeta = {}
+    if (action === 'deploy') reqMeta = await getReqDeployMeta()
+    if (action === 'mint') reqMeta = await getReqMintMeta()
+
+    if (
+      reqMeta?.address === undefined ||
+      reqMeta?.feeInSat === undefined ||
+      reqMeta?.address.length < 10
+    ) {
+      console.error('reqMeta:', reqMeta)
+      throw new Error('Bad req list meta data')
+    }
+
+    // feeInSat will be zero eventually
+    if (reqMeta.feeInSat !== 0) {
+      vouts.push({ address: reqMeta.address, value: reqMeta.feeInSat })
+    }
+
+    console.log(vouts)
+  }
+
+  let feeTotal = 0
+  for (let vout of vouts) {
+    feeTotal += vout.value
+  }
+
   const { inputs, fee, change } = selectSrc20Utxos(sortedUtxos, vouts, feeRate)
   if (!inputs) {
-    throw new Error(`Not enough balance: ${fee} `)
+    throw new Error(`Not enough BTC balance for miner: ${fee} `)
   }
   for (let input of inputs) {
     const txDetails = await getTransaction(network, input.txid)
@@ -329,7 +404,10 @@ export const prepareSendSrc20 = async ({
   psbt.validateSignaturesOfInput(0, validator)
   psbt.finalizeAllInputs()
   const txHex = psbt.extractTransaction().toHex()
-  return { txHex, fee }
+
+  feeTotal += fee
+
+  return { txHex, fee, feeTotal }
 }
 
 export const prepareSendBitcoinLight = async ({
@@ -345,10 +423,10 @@ export const prepareSendBitcoinLight = async ({
   const psbt = new bitcoin.Psbt({ network: psbtNetwork })
 
   const vouts = [{ address: toAddress, value }]
-  const { inputs, fee, change } = selectUtxos(utxos, vouts, feeRate)
+  const { inputs, fee, change } = selectUtxos(utxos, vouts, feeRate, 'light')
 
   if (!inputs) {
-    throw new Error(`Not enough balance: ${fee} `)
+    throw new Error(`Not enough BTC balance for miner: ${fee} `)
   }
 
   for (let input of inputs) {
@@ -388,116 +466,6 @@ export const prepareSendBitcoinLight = async ({
   psbt.validateSignaturesOfInput(0, validator)
   psbt.finalizeAllInputs()
 
-  const txHex = psbt.extractTransaction().toHex()
-  return { txHex, fee }
-}
-
-export const prepareSendSrc20V2 = async ({
-  ecPair,
-  network,
-  utxos,
-  changeAddress,
-  toAddress,
-  token,
-  amount,
-  feeRate,
-}) => {
-  const psbtNetwork = network === 'testnet' ? bitcoin.networks.testnet : bitcoin.networks.bitcoin
-  const psbt = new bitcoin.Psbt({ network: psbtNetwork })
-  const sortedUtxos = utxos.sort((a, b) => b.value - a.value)
-  const vouts = []
-  const transferString = `stamp:{"p":"src-20","op":"transfer","tick":"${token}","amt":"${amount}"}`
-  let transferHex = Buffer.from(transferString, 'utf-8').toString('hex')
-  let count = transferHex.length.toString(16)
-  let padding = ''
-  for (let i = count.length; i < 8; i++) {
-    padding += '0'
-  }
-  transferHex = padding + count + transferHex
-
-  let remaining = transferHex.length % (63 * 2)
-  if (remaining > 0) {
-    for (let i = 0; i < 63 * 2 - remaining; i++) {
-      transferHex += '0'
-    }
-  }
-  const encryption = bin2hex(scramble(hex2bin(sortedUtxos[0].txid), hex2bin(transferHex)))
-  let chunks = []
-  for (let i = 0; i < encryption.length; i = i + 62 * 2) {
-    chunks.push(encryption.substring(i, i + 62 * 2))
-  }
-  chunks = chunks.map((datachunk) => {
-    var pubkey_seg1 = datachunk.substring(0, 62)
-    var pubkey_seg2 = datachunk.substring(62, 124)
-    var second_byte
-    var pubkeyhash
-    var address1 = ''
-    var address2 = ''
-
-    while (address1.length == 0) {
-      var first_byte = '02'
-      second_byte = crypto.randomBytes(1).toString('hex')
-      pubkeyhash = first_byte + pubkey_seg1 + second_byte
-
-      var hash1 = pubkeyhash
-      var address1 = address_from_pubkeyhash(pubkeyhash)
-    }
-
-    while (address2.length == 0) {
-      var first_byte = '03'
-      second_byte = crypto.randomBytes(1).toString('hex')
-      pubkeyhash = first_byte + pubkey_seg2 + second_byte
-
-      var hash2 = pubkeyhash
-      var address2 = address_from_pubkeyhash(pubkeyhash)
-    }
-    var data_hashes = [hash1, hash2]
-    return data_hashes
-  })
-
-  const cpScripts = chunks.map((each) => {
-    return `5121${each[0]}21${each[1]}2102020202020202020202020202020202020202020202020202020202020202020253ae`
-  })
-  for (let cpScriptHex of cpScripts) {
-    vouts.push({
-      script: Buffer.from(cpScriptHex, 'hex'),
-      value: 888,
-    })
-  }
-  const { inputs, fee, change } = selectSrc20Utxos(sortedUtxos, vouts, feeRate)
-  if (!inputs) {
-    throw new Error(`Not enough balance: ${fee} `)
-  }
-  for (let input of inputs) {
-    const txDetails = await getTransaction(network, input.txid)
-    const inputDetails = txDetails.vout[input.vout]
-    const isWitnessUtxo = inputDetails.scriptPubKey.type.startsWith('witness')
-    let psbtInput = {
-      hash: input.txid,
-      index: input.vout,
-    }
-    if (isWitnessUtxo) {
-      psbtInput.witnessUtxo = {
-        script: Buffer.from(inputDetails.scriptPubKey.hex, 'hex'),
-        value: input.value,
-      }
-    } else {
-      psbtInput.nonWitnessUtxo = Buffer.from(txDetails.hex, 'hex')
-    }
-    psbt.addInput(psbtInput)
-  }
-  for (let vout of vouts) {
-    psbt.addOutput(vout)
-  }
-  psbt.addOutput({
-    address: changeAddress,
-    value: change,
-  })
-  psbt.signAllInputs(ecPair)
-  const validator = (pubkey, msghash, signature) =>
-    ECPairFactory(ecc).fromPublicKey(pubkey).verify(msghash, signature)
-  psbt.validateSignaturesOfInput(0, validator)
-  psbt.finalizeAllInputs()
   const txHex = psbt.extractTransaction().toHex()
   return { txHex, fee }
 }

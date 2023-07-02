@@ -16,6 +16,15 @@ export default function Layout({ children }) {
   const isUnlockPage = router.route === '/unlock'
   const isWelcomePage = router.route === '/welcome' || router.route === '/wallet'
 
+  const isListingPage = ['/src20/listing', '/src20/myListing'].includes(router.route)
+
+  console.log('query', router.query)
+  if (router.asPath === '/index.html?route=src20Listing') {
+    router.push('/src20/listing')
+  } else if (router.asPath === '/index.html?route=src20MyListing') {
+    router.push('/src20/myListing')
+  }
+
   useEffect(() => {
     const tryLoadWallet = async () => {
       console.log('Try load wallet')
@@ -24,8 +33,10 @@ export default function Layout({ children }) {
       if (walletHasData) {
         try {
           await wallet.load()
-          console.log(router.route)
-          if (!isUnlockPage && !isWelcomePage) router.push(router.route)
+          console.log(router)
+          if (!isUnlockPage && !isWelcomePage) {
+            router.push(router.pathname)
+          }
           console.log('wallet loaded')
         } catch (e) {
           console.log(e)
@@ -44,7 +55,9 @@ export default function Layout({ children }) {
     }
   }, [setAccount, router, isUnlockPage, isWelcomePage])
 
-  const marginTop = window.innerHeight > 600 ? '100px' : '0px'
+  // const webMode = window.innerHeight > 600
+  const webMode = window.innerWidth > 600
+  const marginTop = webMode ? '100px' : '0px'
 
   useEffect(() => {
     if (colorMode === 'light') {
@@ -65,11 +78,15 @@ export default function Layout({ children }) {
       <StoreProvider>
         <Box
           mt={marginTop}
-          maxW="360px"
+          maxW={webMode && isListingPage ? '760px' : '360px'}
+          ml={webMode && isListingPage ? '-200px' : '0px'}
           maxH="600px"
-          bgColor={'gray.700'}
+          bgColor={'gray.800'}
           width="100vw"
           height="100vh"
+          borderRadius={webMode ? '8px' : '0px'}
+          borderColor={webMode ? 'gray.100' : 'gray.800'}
+          borderWidth={webMode ? '1px' : '0px'}
           p="20px"
         >
           <div>{waitForWallet ? waitForWalletContent : children}</div>

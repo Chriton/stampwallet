@@ -21,10 +21,24 @@ const STEP_PASSWORD = 'password'
 
 const generateSplits = (data) => {
   const res = data.split(' ')
-  while (res.length < 12) {
-    res.push('')
+
+  if (res.length === 12 || res.length === 24) return res
+
+  if (res.length < 12) {
+    while (res.length < 12) {
+      res.push('')
+    }
+    return res.splice(0, 12)
   }
-  return res.splice(0, 12)
+
+  if (res.length < 24) {
+    while (res.length < 24) {
+      res.push('')
+    }
+    return res.splice(0, 24)
+  }
+
+  return res.splice(0, 24)
 }
 
 export default function Wallet() {
@@ -35,9 +49,9 @@ export default function Wallet() {
   const router = useRouter()
 
   const [step, setStep] = useState(router.query.step)
-  if (mnemonic.split(' ').length > 12) {
+  if (mnemonic.split(' ').length > 24) {
     notifyWarn({
-      title: 'Seed phrase error: too many words.',
+      title: `Seed phrase error: invalid words length: ${mnemonic.split(' ').length}`,
     })
   }
 
@@ -83,7 +97,18 @@ export default function Wallet() {
                   title: 'Password not match',
                 })
               } else {
-                await wallet.addMnemonic(mnemonic)
+                try {
+                  await wallet.addMnemonic(mnemonic)
+                } catch (e) {
+                  console.error(e)
+                  if (e?.message?.includes('detect the used word list')) {
+                    notifyWarn({
+                      title: 'Invalid seed phrase.',
+                    })
+                  }
+                  return
+                }
+
                 await wallet.updatePasswordHash(password)
                 await wallet.persist()
                 router.push('/')
@@ -101,7 +126,7 @@ export default function Wallet() {
     return (
       <Box>
         <Box mt="100px">
-          <Text>Please input your 12 words seed phrase:</Text>
+          <Text>Please input your 12 or 24 words seed phrase:</Text>
         </Box>
 
         <Input
@@ -115,10 +140,10 @@ export default function Wallet() {
           }}
         />
         <Box bg="gray.800" borderRadius="6px" p="20px" my="10px">
-          <SimpleGrid columns={3} spacingX="40px" spacingY="20px">
+          <SimpleGrid columns={3} spacingX="40px" spacingY="10px">
             {generateSplits(mnemonic).map((each, index) => {
               return (
-                <Center key={index} height="20px">
+                <Center key={index} height="16px">
                   <Text fontSize="14px">{each}</Text>
                 </Center>
               )

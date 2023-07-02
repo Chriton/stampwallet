@@ -2,7 +2,6 @@ import { Box, Text, Link, Center, VStack, Spacer, Button, Flex, Spinner } from '
 import { useRouter } from 'next/router'
 import { PhoneIcon, AddIcon, WarningIcon, ArrowBackIcon } from '@chakra-ui/icons'
 import { useQuery } from '@tanstack/react-query'
-import { querySrc20ByAddress } from '../query/src20.js'
 import { useState, useEffect } from 'react'
 import numeral from 'numeral'
 import moment from 'moment'
@@ -36,12 +35,29 @@ export default function Home({ address, network }) {
   }, [address, network])
 
   return (
-    <Box maxHeight={'300px'}>
+    <Box
+      maxHeight={'300px'}
+      overflowY={'scroll'}
+      sx={{
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
+        '::-webkit-scrollbar': {
+          display: 'none',
+        },
+      }}
+    >
       {activities.map((item, index) => {
         return (
           <Box key={index} my="10px">
             <Flex>
-              <Link fontSize="13px">{item.txId.substring(0, 10)}</Link>
+              <Link
+                fontSize="13px"
+                onClick={() => {
+                  window.open(getExplorerUrl(network, item.txId))
+                }}
+              >
+                {item.txId.substring(0, 10)}
+              </Link>
 
               <Spacer />
               <Text fontSize={'13px'}>{moment(item.date).format('YYYY-MM-DD HH:mm')}</Text>

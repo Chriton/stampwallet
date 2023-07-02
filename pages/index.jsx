@@ -39,7 +39,7 @@ const Home = () => {
   let account = wallet.getCurrentAccount()
 
   const network = wallet.getNetwork()
-  let accountAddress = account?.address || 'fakeaddress'
+  let accountAddress = account?.address || 'invalid address'
 
   const {
     data,
@@ -137,7 +137,7 @@ const Home = () => {
           w="100%"
           leftIcon={<BiTransferAlt />}
           onClick={() => {
-            router.push('/account/sendSrc20')
+            router.push('/src20')
           }}
         >
           SRC20
