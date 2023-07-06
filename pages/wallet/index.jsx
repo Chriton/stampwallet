@@ -222,7 +222,17 @@ export default function Wallet() {
 
       <Center mt="30px">
         <Button
-          w="100%"
+          w="250px"
+          onClick={() => {
+            router.back()
+          }}
+        >
+          Back
+        </Button>
+        <Spacer m="4px" />
+
+        <Button
+          w="250px"
           onClick={() => {
             setStep(STEP_PASSWORD)
           }}
