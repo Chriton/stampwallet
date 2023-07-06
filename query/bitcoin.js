@@ -16,7 +16,7 @@ export const queryBase = async ({ network, method, params }) => {
   }
   const { result, error } = res.data || { error: 'Empty data' }
   if (error) {
-    throw new Error(`Query faled: ${method}. Message: ${error.message}`)
+    throw new Error(`Query failed: ${method}. Message: ${error.message}`)
   }
   return result
 }
@@ -29,7 +29,7 @@ export const queryBaseV2 = async ({ network, method, params }) => {
   res = await axios.post(url, payload)
   const { result, error } = res.data || { error: 'Empty data' }
   if (error) {
-    throw new Error(`Query faled: ${method}. Message: ${error.message}`)
+    throw new Error(`Query failed: ${method}. Message: ${error.message}`)
   }
   return result
 }
